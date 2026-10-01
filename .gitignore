@@ -1,2 +1,5 @@
 # AI agents
 .agents/
+
+# Editors
+*.swp
