@@ -1,0 +1,16 @@
+id = "augsburg-berlin"
+name = "Augsburg Hbf → Berlin Hbf"
+weekdays = ["mon", "tue", "wed", "thu", "fri"]
+exclude_holidays = "de_nationwide"
+
+[[legs]]
+train = "RE 89"
+from = "Augsburg Hbf"
+to = "München Hbf"
+scheduled_departure = "08:08"
+
+[[legs]]
+train = "ICE 1100"
+from = "München Hbf"
+to = "Berlin Hbf"
+scheduled_departure = "09:19"

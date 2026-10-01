@@ -3,3 +3,10 @@
 
 # Editors
 *.swp
+
+# Local API observations, reports, and credentials
+data/
+site/
+.env
+__pycache__/
+*.pyc
