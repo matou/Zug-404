@@ -27,6 +27,7 @@ from zoneinfo import ZoneInfo
 
 
 TZ = ZoneInfo("Europe/Berlin")
+SCRIPT_DIR = Path(__file__).resolve().parent
 BASE_URL = "https://apis.deutschebahn.com/db-api-marketplace/apis/timetables/v1"
 WEEKDAYS = ("mon", "tue", "wed", "thu", "fri", "sat", "sun")
 TRAIN = re.compile(r"^([A-Za-z]+)\s*(\d+)$")
@@ -611,15 +612,18 @@ def page(title: str, body: str) -> str:
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=("check", "collect", "render"))
-    parser.add_argument("--connections", type=Path, default=Path("connections"))
-    parser.add_argument("--database", type=Path, default=Path("data/zug404.sqlite3"))
-    parser.add_argument("--output", type=Path, default=Path("site"))
+    parser.add_argument("--connections", type=Path, default=SCRIPT_DIR / "connections")
+    parser.add_argument("--database", type=Path, default=SCRIPT_DIR / "data/zug404.sqlite3")
+    parser.add_argument("--output", type=Path, default=SCRIPT_DIR / "site")
     parser.add_argument("--date", type=date.fromisoformat, help="service date for check, YYYY-MM-DD")
     args = parser.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     configs, errors = load_configs(args.connections)
     for error in errors:
         LOG.error("%s", error)
+    if args.command in ("check", "collect") and not configs:
+        LOG.error("no connection files found in %s", args.connections)
+        return 2
     with ExitStack() as stack:
         if args.command in ("check", "collect"):
             lock_path = args.database.with_suffix(".lock")

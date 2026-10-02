@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from datetime import date, datetime
@@ -19,6 +21,30 @@ CONFIG = Connection("test", "A → C", (0, 1, 2, 3, 4), "de_nationwide",
 
 
 class TestConfigAndSource(unittest.TestCase):
+    def test_default_connections_are_relative_to_script(self):
+        script = Path(__file__).resolve().parents[1] / "zug404.py"
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            result = subprocess.run(
+                [sys.executable, str(script), "render", "--database", str(folder / "db.sqlite"),
+                 "--output", str(folder / "site")],
+                cwd=folder, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("augsburg-berlin.html", (folder / "site" / "index.html").read_text())
+
+    def test_collect_reports_missing_connections(self):
+        script = Path(__file__).resolve().parents[1] / "zug404.py"
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            result = subprocess.run(
+                [sys.executable, str(script), "collect", "--connections", str(folder / "missing"),
+                 "--database", str(folder / "db.sqlite"), "--output", str(folder / "site")],
+                cwd=folder, capture_output=True, text=True,
+            )
+            self.assertEqual(result.returncode, 2)
+            self.assertIn("no connection files found", result.stderr)
+
     def test_credentials_are_read_beside_script(self):
         with tempfile.TemporaryDirectory() as temp:
             folder = Path(temp)
