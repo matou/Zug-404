@@ -532,6 +532,35 @@ def reconcile_days(db: sqlite3.Connection, config: Connection, now: datetime) ->
         day += timedelta(days=1)
 
 
+def itinerary(config_data: dict, plans: list[sqlite3.Row]) -> str:
+    """Show scheduled stops, times, and transfer durations for every leg."""
+    by_index = {plan["leg_index"]: plan for plan in plans}
+    items = []
+    for i, leg in enumerate(config_data["legs"]):
+        plan = by_index.get(i)
+        if plan:
+            departure_text = 'scheduled ' + parse_stamp(plan["departure"]).strftime("%Y-%m-%d %H:%M %Z")
+            arrival_text = 'scheduled ' + parse_stamp(plan["arrival"]).strftime("%Y-%m-%d %H:%M %Z")
+        else:
+            departure_text = f'configured {html.escape(leg["departure"])}; timetable unavailable'
+            arrival_text = 'timetable unavailable'
+        items.append(f'<li><strong>{html.escape(leg["train"])}</strong>: '
+                     f'{html.escape(leg["origin"])} departure {departure_text} → '
+                     f'{html.escape(leg["destination"])} arrival {arrival_text}</li>')
+        if i < len(config_data["legs"]) - 1:
+            next_plan = by_index.get(i + 1)
+            if plan and next_plan:
+                planned_arrival = parse_stamp(plan["arrival"])
+                planned_departure = parse_stamp(next_plan["departure"])
+                planned_minutes = round((planned_departure - planned_arrival).total_seconds() / 60)
+                timing = f'scheduled {planned_minutes} min; '
+            else:
+                timing = 'times unavailable; '
+            items.append(f'<li>Transfer at {html.escape(leg["destination"])}: {timing}'
+                         f'minimum {config_data["margins"][i]} min</li>')
+    return '<ol class="itinerary">' + ''.join(items) + '</ol>'
+
+
 def render(db: sqlite3.Connection, configs: list[Connection], errors: list[str], output: Path) -> None:
     output.mkdir(parents=True, exist_ok=True)
     names = {config.id: config.name for config in configs}
@@ -543,7 +572,15 @@ def render(db: sqlite3.Connection, configs: list[Connection], errors: list[str],
         counts = {state: sum(row["outcome"] == state for row in rows) for state in ("worked", "failed", "unknown")}
         samples = counts["worked"] + counts["failed"]
         rate = f"{counts['worked'] / samples:.1%}" if samples else "—"
+        config_data = asdict(next(config for config in configs if config.id == identity)) if identity in names else json.loads(rows[0]["config_json"])
+        latest_date = rows[0]["service_date"] if rows else None
+        latest_plans = (db.execute("SELECT * FROM planned WHERE connection_id=? AND service_date=? ORDER BY leg_index",
+                                   (identity, latest_date)).fetchall() if latest_date else [])
+        summary_route = itinerary(config_data, latest_plans)
+        timetable_note = (f'<p>Timetable for {latest_date}</p>' if latest_plans
+                          else '<p>Configured departure times; timetable unavailable</p>')
         cards.append(f'<article><h2><a href="{identity}.html">{html.escape(name)}</a></h2>'
+                     f'{timetable_note}{summary_route}'
                      f'<p>{len(rows)} eligible days · {counts["worked"]} worked · {counts["failed"]} failed · '
                      f'{counts["unknown"]} unknown · {samples} samples · {rate} success</p></article>')
         table = []
@@ -585,8 +622,10 @@ def render(db: sqlite3.Connection, configs: list[Connection], errors: list[str],
             detail = "<ul>" + "".join(details) + "</ul>" if details else "Timetable not resolved."
             delay = f'{row["arrival_delay_minutes"]:+d} min' if row["arrival_delay_minutes"] is not None else "—"
             table.append(f'<tr><td>{row["service_date"]}</td><td>{row["outcome"]}</td><td>{delay}</td>'
-                         f'<td><details><summary>{html.escape(row["reason"])}</summary>{detail}</details></td></tr>')
+                         f'<td><details><summary>{html.escape(row["reason"])}</summary>'
+                         f'{detail}</details></td></tr>')
         body = (f'<p><a href="index.html">All connections</a></p><h1>{html.escape(name)}</h1>'
+                f'<h2>Trip</h2>{timetable_note}{summary_route}<h2>History</h2>'
                 f'<p>{len(rows)} eligible days · {samples} samples · {rate} success. '
                 'Outcomes and final arrival delay use reported times, which may be estimates.</p>'
                 '<table><thead><tr><th>Date</th><th>Outcome</th><th>Reported arrival delay</th>'
@@ -606,7 +645,8 @@ def page(title: str, body: str) -> str:
             'a{color:#005a9c}article{border:1px solid #ccc;padding:0 1rem;margin:1rem 0}'
             'table{border-collapse:collapse;width:100%}th,td{border-bottom:1px solid #ccc;'
             'padding:.65rem;text-align:left;vertical-align:top}details{max-width:60rem}'
-            'summary{cursor:pointer}ul{padding-left:1.4rem}</style><body>' + body + '</body></html>')
+            'summary{cursor:pointer}ul,ol{padding-left:1.4rem}.itinerary li{margin:.35rem 0}'
+            '</style><body>' + body + '</body></html>')
 
 
 def main(argv: list[str] | None = None) -> int:

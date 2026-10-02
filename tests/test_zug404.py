@@ -174,6 +174,34 @@ class TestOutcomes(unittest.TestCase):
                          [("2026-10-01", "unknown"), ("2026-10-02", "unknown"),
                           ("2026-10-05", "unknown")])
 
+    def test_render_shows_complete_trip_and_all_transfer_times(self):
+        extended = Connection("test", "A → D", CONFIG.weekdays, CONFIG.exclude_holidays,
+                              CONFIG.legs + (Leg("RE 3", "C", "D", "13:15"),), (5, 7))
+        self.db.execute("INSERT INTO planned VALUES (?,?,?,?,?,?,?,?,?)",
+                        ("test", DAY.isoformat(), 2, "3", "4", "c-261001-1", "c-261001-2",
+                         "2610011315", "2610011430"))
+        self.base()
+        self.record(2, "origin", datetime(2026, 10, 1, 13, 15, tzinfo=TZ))
+        self.record(2, "destination", datetime(2026, 10, 1, 14, 30, tzinfo=TZ))
+        upsert_day(self.db, extended, DAY, "worked", "all reported transfers feasible", 0,
+                   datetime(2026, 10, 1, 15, 0, tzinfo=TZ))
+        output = Path(self.temp.name) / "site"
+        render(self.db, [extended], [], output)
+        for filename in ("index.html", "test.html"):
+            page = (output / filename).read_text()
+            self.assertEqual(page.count('<ol class="itinerary">'), 1)
+            visible_trip = page.split('<ol class="itinerary">', 1)[1].split('</ol>', 1)[0]
+            self.assertIn("A departure scheduled 2026-10-01 08:08", visible_trip)
+            self.assertIn("D arrival scheduled 2026-10-01 14:30", visible_trip)
+            self.assertIn("Transfer at B: scheduled 9 min; minimum 5 min", visible_trip)
+            self.assertIn("Transfer at C: scheduled 15 min; minimum 7 min", visible_trip)
+            self.assertNotIn("reported", visible_trip)
+            self.assertIn("RE 89", visible_trip)
+            self.assertIn("ICE 1100", visible_trip)
+            self.assertIn("RE 3", visible_trip)
+            if filename == "test.html":
+                self.assertLess(page.index('<ol class="itinerary">'), page.index('<table>'))
+
 
 class TestAdapterIntegration(unittest.TestCase):
     def test_plan_resolution_and_change_capture(self):
