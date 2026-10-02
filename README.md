@@ -9,7 +9,14 @@ The first proposed connection is Augsburg Hbf → München Hbf → Berlin Hbf, u
 - Python 3.11 or newer, with time zone data for `Europe/Berlin` (Linux normally includes it).
 - A DB Timetables subscription and its `DB-Client-ID` and `DB-Api-Key` values.
 
-The collector reads credentials only from `DB_CLIENT_ID` and `DB_API_KEY` in the **user-run process environment**. Keep them outside this repository and do not send or paste them into an agent session. They are never written into the SQLite database or report. Configure them on your own machine, then run:
+Copy `credentials.example.toml` to `credentials.toml` in the same folder as `zug404.py`, then replace the placeholders with your DB credentials:
+
+```sh
+cp credentials.example.toml credentials.toml
+chmod 600 credentials.toml
+```
+
+`check` and `collect` read this file from the script's folder, even when started from another working directory. The real file is ignored by Git. Keep it private and do not send or paste its contents into an agent session. Credentials are never written into the SQLite database or report. Then run:
 
 ```sh
 python3 zug404.py check --date YYYY-MM-DD
@@ -18,7 +25,7 @@ python3 zug404.py render
 python3 -m http.server 8000 --directory site
 ```
 
-Use a real eligible date for `check`. It prints the resolved stop IDs and planned times, or an error if the sample train or station cannot be matched. `collect` starts 30 minutes before the first departure, checks the current and previous service date, and stops after an 18-hour window. Run it every minute on an always-on Linux machine, from the repository root. For example, use a cron entry that changes to the repository directory and invokes `python3 zug404.py collect`. Keep the scheduler's credentials in its private environment. Pages go to `site/`; observations, source plan slices, and history go to `data/zug404.sqlite3`. Both paths are ignored by Git.
+Use a real eligible date for `check`. It prints the resolved stop IDs and planned times, or an error if the sample train or station cannot be matched. `collect` starts 30 minutes before the first departure, checks the current and previous service date, and stops after an 18-hour window. Run it every minute on an always-on Linux machine, from the repository root. For example, use a cron entry that changes to the repository directory and invokes `python3 zug404.py collect`. The scheduler user must be able to read `credentials.toml` and write to `data/` and `site/`. Pages go to `site/`; observations, source plan slices, and history go to `data/zug404.sqlite3`. Both paths are ignored by Git.
 
 The full change feed loses entries as trips leave stations. Every successful poll is saved, including an empty change entry for a matched stop. An unchanged scheduled time is used only when a successful poll occurred from two minutes before through ten minutes after that station event, and is labelled “no reported change.” Changed times may be estimates. Missing evidence produces `unknown`, and no historical backfill is attempted. Repeated runs update the same date.
 

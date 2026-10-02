@@ -8,5 +8,6 @@
 data/
 site/
 .env
+credentials.toml
 __pycache__/
 *.pyc

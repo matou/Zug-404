@@ -3,9 +3,10 @@ import tempfile
 import unittest
 from datetime import date, datetime
 from pathlib import Path
+from unittest.mock import patch
 
-from zug404 import (TZ, ConfigError, Connection, Leg, database, eligible,
-                    evaluate, load_connection, matching_pair,
+from zug404 import (TZ, ConfigError, Connection, Leg, SourceError, database, eligible,
+                    evaluate, load_connection, load_credentials, matching_pair,
                     observe, parse_changes, parse_stations, parse_stops, reconcile_days,
                     render, resolve_plans, stamp,
                     upsert_day)
@@ -18,6 +19,25 @@ CONFIG = Connection("test", "A → C", (0, 1, 2, 3, 4), "de_nationwide",
 
 
 class TestConfigAndSource(unittest.TestCase):
+    def test_credentials_are_read_beside_script(self):
+        with tempfile.TemporaryDirectory() as temp:
+            folder = Path(temp)
+            (folder / "credentials.toml").write_text('DB_CLIENT_ID = "client"\nDB_API_KEY = "key"\n')
+            with patch("zug404.__file__", str(folder / "zug404.py")):
+                self.assertEqual(load_credentials(), ("client", "key"))
+
+    def test_missing_or_invalid_credentials(self):
+        with tempfile.TemporaryDirectory() as temp:
+            path = Path(temp) / "credentials.toml"
+            with self.assertRaisesRegex(SourceError, "create this file"):
+                load_credentials(path)
+            path.write_text('DB_CLIENT_ID = "client"\nDB_API_KEY = ""\n')
+            with self.assertRaisesRegex(SourceError, "nonempty strings"):
+                load_credentials(path)
+            path.write_text('DB_CLIENT_ID = "client"\nDB_API_KEY = [')
+            with self.assertRaisesRegex(SourceError, "valid TOML"):
+                load_credentials(path)
+
     def test_holidays(self):
         self.assertFalse(eligible(CONFIG, date(2026, 10, 3)))
         self.assertFalse(eligible(CONFIG, date(2026, 4, 3)))  # Good Friday

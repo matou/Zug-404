@@ -10,7 +10,6 @@ import fcntl
 import html
 import json
 import logging
-import os
 import re
 import sqlite3
 import sys
@@ -68,6 +67,21 @@ class ConfigError(ValueError):
 
 class SourceError(RuntimeError):
     pass
+
+
+def load_credentials(path: Path | None = None) -> tuple[str, str]:
+    path = path or Path(__file__).resolve().with_name("credentials.toml")
+    try:
+        credentials = tomllib.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError as exc:
+        raise SourceError(f"{path}: create this file from credentials.example.toml") from exc
+    except (OSError, UnicodeError, tomllib.TOMLDecodeError) as exc:
+        raise SourceError(f"{path}: could not read valid TOML credentials") from exc
+    client_id = credentials.get("DB_CLIENT_ID")
+    api_key = credentials.get("DB_API_KEY")
+    if not all(isinstance(value, str) and value.strip() for value in (client_id, api_key)):
+        raise SourceError(f"{path}: DB_CLIENT_ID and DB_API_KEY must be nonempty strings")
+    return client_id, api_key
 
 
 def parse_stamp(value: str | None) -> datetime | None:
@@ -213,7 +227,7 @@ def parse_changes(xml: bytes) -> dict[str, dict[str, dict[str, str]]]:
 class Timetables:
     def __init__(self, client_id: str, api_key: str):
         if not client_id or not api_key:
-            raise SourceError("DB_CLIENT_ID and DB_API_KEY are required for collect")
+            raise SourceError("DB client ID and API key are required")
         self.headers = {"DB-Client-ID": client_id, "DB-Api-Key": api_key}
         self.last_call = 0.0
 
@@ -619,7 +633,7 @@ def main(argv: list[str] | None = None) -> int:
         db = stack.enter_context(closing(database(args.database)))
         if args.command in ("check", "collect"):
             try:
-                api = Timetables(os.environ.get("DB_CLIENT_ID", ""), os.environ.get("DB_API_KEY", ""))
+                api = Timetables(*load_credentials())
             except SourceError as exc:
                 LOG.error("%s", exc)
                 return 2
