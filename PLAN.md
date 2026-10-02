@@ -7,12 +7,12 @@ Record the reported outcome of specified recurring train connections in Germany 
 ## First connection
 
 - Journey: Augsburg Hbf to Berlin Hbf, changing at München Hbf.
-- Leg 1: RE89 from Augsburg Hbf to München Hbf, departing around 08:08.
+- Leg 1: RE89 from Augsburg Hbf to München Hbf, departing around 08:08. DB Timetables identified it as ARV 57031 on 2026-10-02.
 - Leg 2: ICE 1100 from München Hbf to Berlin Hbf, departing around 09:19.
 - Calendar: Monday through Friday, excluding public holidays observed throughout Germany.
 - Transfer margin: five minutes by default, with an optional override for any transfer.
 
-The exact planned stops and times are to be discovered from timetable data. Validate that RE89 reaches München Hbf before ICE 1100 departs and that ICE 1100 serves Berlin Hbf; the sample timetable could not be independently verified from this environment. If the named trains or stops cannot be matched unambiguously, flag the configuration for review rather than silently substituting another service.
+An authenticated plan check on 2026-10-02 found ARV 57031 arriving at München Hbf at 08:54, followed by ICE 1100 departing at 09:19 and arriving at Berlin Hbf at 13:58. Validate each later service date independently. If the named trains or stops cannot be matched unambiguously, flag the configuration for review rather than silently substituting another service.
 
 ## Connection configuration
 
@@ -25,7 +25,7 @@ weekdays = ["mon", "tue", "wed", "thu", "fri"]
 exclude_holidays = "de_nationwide"
 
 [[legs]]
-train = "RE 89"
+train = "ARV 57031" # RE89 line in DB Timetables on 2026-10-02
 from = "Augsburg Hbf"
 to = "München Hbf"
 scheduled_departure = "08:08"

@@ -4,7 +4,8 @@ weekdays = ["mon", "tue", "wed", "thu", "fri"]
 exclude_holidays = "de_nationwide"
 
 [[legs]]
-train = "RE 89"
+# DB Timetables lists the RE89 line as ARV 57031 on 2026-10-02.
+train = "ARV 57031"
 from = "Augsburg Hbf"
 to = "München Hbf"
 scheduled_departure = "08:08"

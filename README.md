@@ -2,7 +2,9 @@
 
 Zug-404 collects reported outcomes for recurring German train connections. It uses DB Timetables station plans and changes to classify each eligible journey as worked, failed, or unknown, then writes local static HTML with success rates, sample counts, reported arrival delays, and a date-by-date history.
 
-The first proposed connection is Augsburg Hbf → München Hbf → Berlin Hbf, using RE 89 and ICE 1100 on weekdays outside nationwide German public holidays. **Its exact timetable has not yet been verified with authenticated API responses.** `check` reports an error if either named service cannot be matched unambiguously.
+The first connection is Augsburg Hbf → München Hbf → Berlin Hbf, using the RE89 line and ICE 1100 on weekdays outside nationwide German public holidays. DB Timetables lists the RE89 train as `ARV 57031` on 2026-10-02; `check` resolved both legs for that date. Check later service dates because train identifiers and timetables can change. `check` reports an error if either named service cannot be matched unambiguously.
+
+In connection files, `train` must use the train category and number shown in DB Timetables (for example, `RE 22906`), which may differ from a public line label such as `RE 50`. Use `check` on the service date to verify each new connection.
 
 ## Requirements and local setup
 
@@ -29,7 +31,7 @@ Use a real eligible date for `check`. It prints the resolved stop IDs and planne
 
 The full change feed loses entries as trips leave stations. Every successful poll is saved, including an empty change entry for a matched stop. An unchanged scheduled time is used only when a successful poll occurred from two minutes before through ten minutes after that station event, and is labelled “no reported change.” Changed times may be estimates. Missing evidence produces `unknown`, and no historical backfill is attempted. Repeated runs update the same date.
 
-**Before unattended deployment or publication**, clarify DB's terms for API polling, indefinite local retention, and publishing aggregate statistics, as described in the [data-source research](docs/research/train-data-sources.md). The sample service and the feed's behavior around completed arrivals also need a live check on your machine. No authenticated API call has been run in this workspace.
+**Before unattended deployment or publication**, clarify DB's terms for API polling, indefinite local retention, and publishing aggregate statistics, as described in the [data-source research](docs/research/train-data-sources.md). The feed's behavior around completed arrivals still needs a live check.
 
 Run the local tests with `python3 -m unittest discover -s tests`.
 
